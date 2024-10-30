@@ -12,4 +12,4 @@ for path in data_dir.glob("*.png"):
         path.rename(data_dir  / 'captcha_error' / path.name )
         print(path.name)
     else:
-        path.rename(path.name.lower())    
+        path.rename(data_dir / path.name.lower())    

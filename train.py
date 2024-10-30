@@ -43,28 +43,15 @@ Let's download the data.
 """
 
 
-"""shell
-curl -LO https://github.com/AakashKumarNain/CaptchaCracker/raw/master/captcha_images_v2.zip
-unzip -qq captcha_images_v2.zip
-"""
-
-
-"""
-The dataset contains 1040 captcha files as `png` images. The label for each sample is a string,
-the name of the file (minus the file extension).
-We will map each character in the string to an integer for training the model. Similary,
-we will need to map the predictions of the model back to strings. For this purpose
-we will maintain two dictionaries, mapping characters to integers, and integers to characters,
-respectively.
-"""
-
+print(tf.__version__) 
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
 # Path to the data directory
-data_dir = Path("./captcha_images/")
+data_dir = Path("./jpg/")
 
 # Get list of all the images
-images = sorted(list(map(str, list(data_dir.glob("*.png")))))
-labels = [img.split(os.path.sep)[-1].split(".png")[0] for img in images]
+images = sorted(list(map(str, list(data_dir.glob("*.jpg")))))
+labels = [img.split(os.path.sep)[-1].split(".jpg")[0] for img in images]
 characters = set(char for label in labels for char in label)
 characters = sorted(list(characters))
 

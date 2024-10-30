@@ -7,102 +7,105 @@ from PIL import Image
 import numpy as np
 import cv2
 import os
+from pathlib import Path
 
-# Custom Dataset for CAPTCHA images
 class CAPTCHADataset(Dataset):
-    def __init__(self, image_dir, labels=None, transform=None):
-        self.image_dir = image_dir
+    def __init__(self, image_dir, transform=None):
+        self.image_dir = Path(image_dir)
         self.transform = transform
-        self.images = [f for f in os.listdir(image_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
-        self.labels = labels
+        self.images = list(self.image_dir.glob("*.jpg"))
+        self.char_to_idx = {str(i): i for i in range(10)}
+        # Add uppercase letters A-Z
+        for i, char in enumerate('abcdefghijklmnopqrstuvwxyz'):
+            self.char_to_idx[char] = i + 10
+        print(self.char_to_idx)
+
         
     def __len__(self):
         return len(self.images)
     
     def preprocess_image(self, image):
-        # Convert to grayscale if needed
         if len(image.shape) == 3:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
-        # Apply adaptive thresholding
-        thresh = cv2.adaptiveThreshold(
-            image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY_INV, 11, 2
-        )
-        
-        # Remove noise
-        kernel = np.ones((2,2), np.uint8)
+        _, thresh = cv2.threshold(image, 127, 255, cv2.THRESH_BINARY_INV)
+        kernel = np.ones((3,3), np.uint8)
         cleaned = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
-        
         return cleaned
 
     def __getitem__(self, idx):
-        img_name = os.path.join(self.image_dir, self.images[idx])
-        image = cv2.imread(img_name)
+        img_path = str(self.images[idx])
+        image = cv2.imread(img_path)
         
-        # Preprocess the image
+        # Convert filename characters to indices
+        label = self.images[idx].stem
+        label_indices = [self.char_to_idx[char] for char in label]
+        label = torch.tensor(label_indices, dtype=torch.long)
+        
         processed_image = self.preprocess_image(image)
-        
-        # Convert to PIL Image for transforms
         image = Image.fromarray(processed_image)
         
         if self.transform:
             image = self.transform(image)
-        
-        # If labels are provided
-        if self.labels:
-            label = torch.tensor(self.labels[idx])
-            return image, label
-        return image
+            
+        return image, label
 
-# CNN Model for CAPTCHA recognition
-class CAPTCHANet(nn.Module):
-    def __init__(self, num_chars=4, num_classes=10):
-        super(CAPTCHANet, self).__init__()
+class GridCAPTCHANet(nn.Module):
+    def __init__(self, num_chars=5, num_classes=36):  # 10 digits + 26 letters
+        super(GridCAPTCHANet, self).__init__()
         
-        # CNN layers
         self.features = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
+            nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
             nn.MaxPool2d(2, 2),
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
+            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
             nn.MaxPool2d(2, 2),
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
             nn.MaxPool2d(2, 2),
-            nn.Dropout(0.25)
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Dropout(0.3)
         )
         
-        # Calculate the size after CNN layers
-        self.feature_size = self._get_feature_size()
-        
-        # Fully connected layers for each digit
         self.digit_classifiers = nn.ModuleList([
             nn.Sequential(
-                nn.Linear(self.feature_size, 256),
+                nn.Linear(256 * 4 * 4, 512),
                 nn.ReLU(),
                 nn.Dropout(0.5),
-                nn.Linear(256, num_classes)
+                nn.Linear(512, num_classes)
             ) for _ in range(num_chars)
         ])
-    
-    def _get_feature_size(self):
-        # Helper function to calculate feature size
-        x = torch.randn(1, 1, 50, 200)  # Assuming input size of 50x200
-        x = self.features(x)
-        return x.view(1, -1).size(1)
-    
+
     def forward(self, x):
         x = self.features(x)
         x = x.view(x.size(0), -1)
-        
-        # Get predictions for each digit
-        digits = [classifier(x) for classifier in self.digit_classifiers]
-        return digits
+        return [classifier(x) for classifier in self.digit_classifiers]
 
-# Training function
-def train_model(model, train_loader, criterion, optimizer, device, num_epochs=10):
+def predict(model, image_path, device):
+    model.eval()
+    transform = transforms.Compose([
+        transforms.Resize((64, 64)),
+        transforms.ToTensor(),
+    ])
+    
+    dataset = CAPTCHADataset("dummy")
+    image = cv2.imread(image_path)
+    processed_image = dataset.preprocess_image(image)
+    image = Image.fromarray(processed_image)
+    image = transform(image).unsqueeze(0).to(device)
+    
+    idx_to_char = {v: k for k, v in dataset.char_to_idx.items()}
+    
+    with torch.no_grad():
+        outputs = model(image)
+        predictions = [output.max(1)[1].item() for output in outputs]
+        chars = [idx_to_char[idx] for idx in predictions]
+    
+    return ''.join(chars)
+
+def train_model(model, train_loader, criterion, optimizer, device, num_epochs=100):
     model.train()
     for epoch in range(num_epochs):
         running_loss = 0.0
@@ -114,89 +117,52 @@ def train_model(model, train_loader, criterion, optimizer, device, num_epochs=10
             labels = labels.to(device)
             
             optimizer.zero_grad()
-            
-            # Forward pass
             outputs = model(inputs)
             
-            # Calculate loss for each digit
             loss = sum(criterion(output, labels[:, i]) for i, output in enumerate(outputs))
-            
-            # Backward pass and optimize
             loss.backward()
             optimizer.step()
             
             running_loss += loss.item()
             
-            # Calculate accuracy
             predictions = [output.max(1)[1] for output in outputs]
             for i, pred in enumerate(predictions):
                 correct += (pred == labels[:, i]).sum().item()
                 total += labels.size(0)
         
         epoch_loss = running_loss / len(train_loader)
-        epoch_acc = correct / (total * 4)  # 4 digits
+        epoch_acc = correct / (total * 5)
+        
+        
         print(f'Epoch {epoch+1}/{num_epochs}')
         print(f'Loss: {epoch_loss:.4f}, Accuracy: {epoch_acc:.4f}')
 
-# Prediction function
-def predict_captcha(model, image_path, device):
-    # Preprocessing transforms
-    transform = transforms.Compose([
-        transforms.Resize((50, 200)),
-        transforms.ToTensor(),
-    ])
-    
-    # Load and preprocess image
-    image = cv2.imread(image_path)
-    dataset = CAPTCHADataset(".", transform=transform)
-    processed_image = dataset.preprocess_image(image)
-    image = Image.fromarray(processed_image)
-    image = transform(image).unsqueeze(0).to(device)
-    
-    # Get predictions
-    model.eval()
-    with torch.no_grad():
-        outputs = model(image)
-        predictions = [output.max(1)[1].item() for output in outputs]
-    
-    return ''.join(map(str, predictions))
-
-# Example usage
 def main():
-    # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    # Initialize model
-    model = CAPTCHANet().to(device)
-    
-    # Define loss function and optimizer
+    print(device)
+    model = GridCAPTCHANet(num_chars=5, num_classes=36).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     
-    # Define transforms
     transform = transforms.Compose([
-        transforms.Resize((50, 200)),
+        transforms.Resize((64, 64)),
         transforms.ToTensor(),
     ])
     
-    # Create dataset and dataloader
-    # You'll need to provide your own dataset path and labels
     dataset = CAPTCHADataset(
-        image_dir="path_to_your_images",
-        labels=None,  # Add your labels here
+        image_dir="jpg",
         transform=transform
     )
-    train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
     
-    # Train the model
+    train_loader = DataLoader(
+        dataset,
+        batch_size=32,
+        shuffle=True,
+        num_workers=4
+    )
+    
     train_model(model, train_loader, criterion, optimizer, device)
-    
-    # Save the model
-    torch.save(model.state_dict(), 'captcha_model.pth')
-    
-    # Example prediction
-    result = predict_captcha(model, "example_captcha.png", device)
-    print(f"Predicted CAPTCHA: {result}")
+    torch.save(model.state_dict(), 'grid_captcha_model.pth')
 
 if __name__ == "__main__":
     main()
