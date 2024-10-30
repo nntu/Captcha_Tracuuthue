@@ -175,19 +175,20 @@ plt.show()
 """
 ## Model
 """
+# Clear any existing custom objects
 keras.saving.get_custom_objects().clear()
 
 @keras.saving.register_keras_serializable()
 def ctc_batch_cost(y_true, y_pred, input_length, label_length):
-    label_length = ops.cast(ops.squeeze(label_length, axis=-1), dtype="int32")
-    input_length = ops.cast(ops.squeeze(input_length, axis=-1), dtype="int32")
-    sparse_labels = ops.cast(
+    label_length = tf.cast(tf.squeeze(label_length, axis=-1), dtype="int32")
+    input_length = tf.cast(tf.squeeze(input_length, axis=-1), dtype="int32")
+    sparse_labels = tf.cast(
         ctc_label_dense_to_sparse(y_true, label_length), dtype="int32"
     )
 
-    y_pred = ops.log(ops.transpose(y_pred, axes=[1, 0, 2]) + keras.backend.epsilon())
+    y_pred = tf.math.log(tf.transpose(y_pred, perm=[1, 0, 2]) + keras.backend.epsilon())
 
-    return ops.expand_dims(
+    return tf.expand_dims(
         tf.compat.v1.nn.ctc_loss(
             inputs=y_pred, labels=sparse_labels, sequence_length=input_length
         ),
@@ -196,43 +197,43 @@ def ctc_batch_cost(y_true, y_pred, input_length, label_length):
 
 @keras.saving.register_keras_serializable()
 def ctc_label_dense_to_sparse(labels, label_lengths):
-    label_shape = ops.shape(labels)
-    num_batches_tns = ops.stack([label_shape[0]])
-    max_num_labels_tns = ops.stack([label_shape[1]])
+    label_shape = tf.shape(labels)
+    num_batches_tns = tf.stack([label_shape[0]])
+    max_num_labels_tns = tf.stack([label_shape[1]])
 
     def range_less_than(old_input, current_input):
-        return ops.expand_dims(ops.arange(ops.shape(old_input)[1]), 0) < tf.fill(
+        return tf.expand_dims(tf.range(tf.shape(old_input)[1]), 0) < tf.fill(
             max_num_labels_tns, current_input
         )
 
-    init = ops.cast(tf.fill([1, label_shape[1]], 0), dtype="bool")
+    init = tf.cast(tf.fill([1, label_shape[1]], 0), dtype="bool")
     dense_mask = tf.compat.v1.scan(
         range_less_than, label_lengths, initializer=init, parallel_iterations=1
     )
     dense_mask = dense_mask[:, 0, :]
 
-    label_array = ops.reshape(
-        ops.tile(ops.arange(0, label_shape[1]), num_batches_tns), label_shape
+    label_array = tf.reshape(
+        tf.tile(tf.range(0, label_shape[1]), num_batches_tns), label_shape
     )
     label_ind = tf.compat.v1.boolean_mask(label_array, dense_mask)
 
-    batch_array = ops.transpose(
-        ops.reshape(
-            ops.tile(ops.arange(0, label_shape[0]), max_num_labels_tns),
+    batch_array = tf.transpose(
+        tf.reshape(
+            tf.tile(tf.range(0, label_shape[0]), max_num_labels_tns),
             tf.reverse(label_shape, [0]),
         )
     )
     batch_ind = tf.compat.v1.boolean_mask(batch_array, dense_mask)
-    indices = ops.transpose(
-        ops.reshape(ops.concatenate([batch_ind, label_ind], axis=0), [2, -1])
+    indices = tf.transpose(
+        tf.reshape(tf.concat([batch_ind, label_ind], axis=0), [2, -1])
     )
 
     vals_sparse = tf.compat.v1.gather_nd(labels, indices)
 
     return tf.SparseTensor(
-        ops.cast(indices, dtype="int64"),
+        tf.cast(indices, dtype="int64"),
         vals_sparse,
-        ops.cast(label_shape, dtype="int64"),
+        tf.cast(label_shape, dtype="int64"),
     )
 
 @keras.saving.register_keras_serializable()
@@ -242,23 +243,23 @@ class CTCLayer(layers.Layer):
         self.loss_fn = ctc_batch_cost
 
     def call(self, y_true, y_pred):
-        # Compute the training-time loss value and add it
-        # to the layer using `self.add_loss()`.
-        batch_len = ops.cast(ops.shape(y_true)[0], dtype="int64")
-        input_length = ops.cast(ops.shape(y_pred)[1], dtype="int64")
-        label_length = ops.cast(ops.shape(y_true)[1], dtype="int64")
+        batch_len = tf.cast(tf.shape(y_true)[0], dtype="int64")
+        input_length = tf.cast(tf.shape(y_pred)[1], dtype="int64")
+        label_length = tf.cast(tf.shape(y_true)[1], dtype="int64")
 
-        input_length = input_length * ops.ones(shape=(batch_len, 1), dtype="int64")
-        label_length = label_length * ops.ones(shape=(batch_len, 1), dtype="int64")
+        input_length = input_length * tf.ones(shape=(batch_len, 1), dtype="int64")
+        label_length = label_length * tf.ones(shape=(batch_len, 1), dtype="int64")
 
         loss = self.loss_fn(y_true, y_pred, input_length, label_length)
         self.add_loss(loss)
 
-        # At test time, just return the computed predictions
         return y_pred
-    
+
     def get_config(self):
-        return {"ctc_loss": self.ctc_batch_cost}
+        config = super().get_config()
+        return config
+    
+ 
     
 
 def build_model():
@@ -346,7 +347,7 @@ history = model.fit(
     epochs=epochs,
     callbacks=[early_stopping],
 )
-keras.utils.plot_model(model, to_file='fullvae.png')
+#keras.utils.plot_model(model, to_file='fullvae.png')
 model.save('captcha.keras')
 
 
