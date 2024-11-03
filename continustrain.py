@@ -252,14 +252,14 @@ if __name__ == "__main__":
     # Load your datasets (train_dataset and validation_dataset should be defined)
     # Continue training the model
     model, history = continue_training(
-        model_path="captcha_continued.keras",
+        model_path="captcha.keras",
         train_dataset=train_dataset,
         validation_dataset=validation_dataset,
         additional_epochs=1000
     )
-    
+    model.summary()
     # Save the updated model
-    model.save('captcha_continued1.keras')
+    model.save('captcha_continued.keras')
     
     # Plot training history
     plt.figure(figsize=(10, 4))
