@@ -1,12 +1,12 @@
 
-bin/chromium127/*
+bin/chromium/*
 config.py
 outputdir/
 logs/*.log
 data/*
 captcha_images/*
 jpg/*
-
+~$*.xlsx
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

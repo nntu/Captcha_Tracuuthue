@@ -205,9 +205,4 @@ class CaptchaPredictor:
         plt.tight_layout()
         plt.show()
 
-# Initialize the predictor
-predictor = CaptchaPredictor('captcha.keras')
-
-# Single image prediction
-text = predictor.predict('test.jpg')
-print(f"Predicted text: {text}")
+ 
