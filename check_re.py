@@ -87,7 +87,7 @@ class CTCLayer(layers.Layer):
         return config
 
 class CaptchaPredictor:
-    def __init__(self, model_path='captcha.keras', img_width=130, img_height=50):
+    def __init__(self, model_path='captcha_good.keras', img_width=130, img_height=50):
         self.img_width = img_width
         self.img_height = img_height
         

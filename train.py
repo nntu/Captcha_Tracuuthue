@@ -47,11 +47,11 @@ print(tf.__version__)
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
 # Path to the data directory
-data_dir = Path("./jpg/")
+data_dir = Path("./captcha/capcha_ok/")
 
 # Get list of all the images
-images = sorted(list(map(str, list(data_dir.glob("*.jpg")))))
-labels = [img.split(os.path.sep)[-1].split(".jpg")[0] for img in images]
+images = sorted(list(map(str, list(data_dir.glob("*.png")))))
+labels = [img.split(os.path.sep)[-1].split(".png")[0] for img in images]
 characters = set(char for label in labels for char in label)
 characters = sorted(list(characters))
 
@@ -64,8 +64,8 @@ print(labels)
 batch_size = 16
 
 # Desired image dimensions
-img_width = 130
-img_height = 50
+img_width = 117
+img_height = 45
 
 # Factor by which the image is going to be downsampled
 # by the convolutional blocks. We will be using two

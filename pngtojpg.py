@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 # Path to the data directory
-data_dir = Path("./captcha_images/")
+data_dir = Path("./captcha/capcha_ok/")
 
 
 for path in data_dir.glob("*.png"): 
@@ -14,7 +14,7 @@ for path in data_dir.glob("*.png"):
     image = Image.open(path)
     new_image = Image.new("RGBA", image.size, "WHITE") 
     new_image.paste(image, (0, 0), image)
-    new_image.convert('RGB').save(f'./jpg/{filename}', "JPEG")
+    new_image.convert('RGB').save(f'./captcha/jpg/{filename}', "JPEG")
     
 
 # image = Image.open('test.png')
