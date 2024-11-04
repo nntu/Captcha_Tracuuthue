@@ -108,7 +108,9 @@ class CaptchaPredictor:
         )
         
         # Load vocabulary
+         
         self.char_to_num = self._load_vocabulary()
+      
         self.num_to_char = layers.StringLookup(
             vocabulary=self.char_to_num.get_vocabulary(), 
             mask_token=None, 
@@ -116,13 +118,11 @@ class CaptchaPredictor:
         )
 
     def _load_vocabulary(self):
-        """Load the character vocabulary from vocab.txt"""
-        try:
-            with open("vocab.txt", "r") as f:
-                vocab = [line.strip() for line in f]
-            return layers.StringLookup(vocabulary=vocab, mask_token=None)
-        except FileNotFoundError:
-            raise FileNotFoundError("vocab.txt not found. Please ensure the vocabulary file exists.")
+        """Load the character vocabulary from vocab.txt"""      
+        vocab = ['[UNK]', '0', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'k', 'm', 'n', 'o', 'p', 'r', 'w', 'x', 'y']
+  
+        return layers.StringLookup(vocabulary=vocab, mask_token=None)
+       
 
     def preprocess_image(self, image_path):
         """Preprocess a single image for prediction"""
@@ -169,7 +169,8 @@ class CaptchaPredictor:
             text = tf.strings.reduce_join(self.num_to_char(res)).numpy().decode("utf-8")
             output_text.append(text)
         return output_text
-
+    
+   
     def predict(self, image_path, max_length=5):
         """Predict text from a single image"""
         processed_img = self.preprocess_image(image_path)
@@ -205,4 +206,3 @@ class CaptchaPredictor:
         plt.tight_layout()
         plt.show()
 
- 
