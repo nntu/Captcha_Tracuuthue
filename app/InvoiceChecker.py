@@ -36,7 +36,7 @@ class InvoiceChecker:
         self.wait_timeout = 20
         self.max_retries = 3
         self.browser = None
-        self.predictor = CaptchaPredictor('captcha.keras')
+        self.predictor = CaptchaPredictor('captcha_good.keras')
         # Configure logging
         self._setup_logging()
     
