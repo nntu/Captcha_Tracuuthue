@@ -1,53 +1,47 @@
-
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
+import numpy as np
+from pathlib import Path
+import matplotlib.pyplot as plt
+from PIL import Image
 import os
 
-os.environ["KERAS_BACKEND"] = "tensorflow"
-
-import numpy as np
-import matplotlib.pyplot as plt
-
-from pathlib import Path
-
- 
-"""
-## Load the data: [Captcha Images](https://www.kaggle.com/fournierp/captcha-version-2-images)
-Let's download the data.
-"""
-
-
- 
-# Path to the data directory
-data_dir = Path("./captcha/capcha_ok/")
-
-# Get list of all the images
-images = sorted(list(map(str, list(data_dir.glob("*.png")))))
-labels = [img.split(os.path.sep)[-1].split(".png")[0] for img in images]
-characters = set(char for label in labels for char in label)
-characters = sorted(list(characters))
-
-print("Number of images found: ", len(images))
-print("Number of labels found: ", len(labels))
-print("Number of unique characters: ", len(characters))
-print("Characters present: ", characters)
-print(labels)
-# Batch size for training and validation
-batch_size = 16
-
-# Desired image dimensions
-img_width = 130
+# Define image dimensions and transforms
 img_height = 50
+img_width = 130
+transform = transforms.Compose([
+    transforms.Grayscale(),
+    transforms.Resize((img_height, img_width)),
+    transforms.ToTensor(),
+])
 
-# Factor by which the image is going to be downsampled
-# by the convolutional blocks. We will be using two
-# convolution blocks and each block will have
-# a pooling layer which downsample the features by a factor of 2.
-# Hence total downsampling factor would be 4.
-downsample_factor = 4
+# Load and transform image
+img_path = "captcha/capcha_ok/2a2n5.png"
+img = Image.open(img_path)
+img_tensor = transform(img)
 
-# Maximum length of any captcha in the dataset
-max_length = max([len(label) for label in labels])
-print ("max length" , max_length)
+# Display original and transformed images side by side
+plt.figure(figsize=(12, 4))
 
-"""
-## Preprocessing
-"""
+# Original image
+plt.subplot(1, 2, 1)
+plt.imshow(img, cmap='gray')
+plt.title('Original Image')
+plt.axis('off')
+
+# Transformed image
+plt.subplot(1, 2, 2)
+plt.imshow(img_tensor.squeeze(), cmap='gray')  # squeeze removes the channel dimension
+plt.title(f'Transformed Image ({img_height}x{img_width})')
+plt.axis('off')
+
+plt.tight_layout()
+plt.show()
+
+# Print tensor information
+print(f"Tensor shape: {img_tensor.shape}")
+print(f"Value range: [{img_tensor.min():.3f}, {img_tensor.max():.3f}]")

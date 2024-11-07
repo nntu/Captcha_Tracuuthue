@@ -5,6 +5,7 @@ outputdir/
 logs/*.log
 data/*
 captcha_images/*
+downloaded_captchas/*
 jpg/*
 ~$*.xlsx
 # Byte-compiled / optimized / DLL files
