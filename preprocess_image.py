@@ -128,4 +128,4 @@ def batch_process_images(input_paths, output_dir):
         except Exception as e:
             print(f'Error processing {filename}: {str(e)}')
 
-process_image("7wxak.png")
+process_image("2a3ad.jpg")
